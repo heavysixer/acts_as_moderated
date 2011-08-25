@@ -105,8 +105,10 @@ The moderation plugin adds an attr_accessor called "skip_moderation", which when
 record from being created for that instance of a save. This is useful if you need to create records programmatically, which
 don't need to be moderated initially but will need to be moderated at some later point. For example:
 
+<pre><code>
   @story = ModeratedStory.create #creates a moderation record
   @story = ModeratedStory.create(:skip_moderation => true) #does not create a moderation record
+</code></pre>
 
 A word to the wise however, since this attr_accessor prevents records from being moderated you will want to protect it from
 mass_assignment in your model.
