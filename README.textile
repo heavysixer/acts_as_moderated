@@ -13,6 +13,7 @@ h2. Setup
 
 Create the moderated_records table like so:
 
+<pre><code>
     create_table "moderation_records", :force => true do |t|
       t.integer  "recordable_id"
       t.string   "recordable_type"
@@ -33,21 +34,26 @@ Create the moderated_records table like so:
     add_index "moderation_records", ["recordable_id", "recordable_type"], :name => "index_moderation_records_on_recordable_id_and_recordable_type"
     add_index "moderation_records", ["rejected"], :name => "index_moderation_records_on_rejected"
     add_index "moderation_records", ["state_id"], :name => "index_moderation_records_on_state_id"
+</code></pre>
 
 h2. Usage
 
 ActsAsModerated has two integration points. The first is within the model(s) to be moderated, which can be done like so:
 
+<pre><code>
     class Comment < ActiveRecord::Base
       acts_as_moderated :body
     end
+</code></pre>
 
 The second integration point is the class that acts as the moderator. Typically this is some user or account class. The idea is that behind
 this integration point is to create an audit trail for decisions made by the moderator if you ever need to watch the watcher.
 
+<pre><code>
   class Account < ActiveRecord::Base
     acts_as_moderator
   end
+</code></pre>
 
 The plugin also supports an after_moderation callback on the record being moderated, which you can use to take action based on what the 
 moderator did. For example:
@@ -66,6 +72,7 @@ The ModerationRecord class has a named_scope called "queue", which will return r
 it will be returned first regardless of its age relative to unflagged records. This is useful if you want to ensure that moderators see 
 potentially dangerous records first. A good way to flag a record is using the after_moderated callback for example:
 
+<pre><code>
     class Comment < ActiveRecord::Base
       acts_as_moderated :body
 
@@ -73,10 +80,12 @@ potentially dangerous records first. A good way to flag a record is using the af
         moderation_record.flag! if body =~ /viagra/i
       end
     end
+</code></pre>
 
 The moderation record will attempt to make callbacks on the model being moderated after a record is first created "after_moderation"
 and when a moderator rejects a record "after_rejection" here is an example of what they might do:
 
+<pre><code>
     class Story < ActiveRecord::Base
       acts_as_moderated :body
 
@@ -88,6 +97,7 @@ and when a moderator rejects a record "after_rejection" here is an example of wh
         update_attribute(:rejected, true)
       end
     end
+</code></pre>
 
 h3. Skipping moderation
 
