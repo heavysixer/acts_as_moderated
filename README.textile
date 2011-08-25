@@ -1,0 +1,118 @@
+h1. acts_as_moderated
+
+ActsAsModerated is a plugin that allows specific columns of a model to be audited by a moderator at some later point.
+
+ActsAsModerated is good for:
+
+* spot-checking user generated content
+* being notified when new content is created
+* tracking changes within a record
+* spam checking
+
+h2. Setup
+
+Create the moderated_records table like so:
+
+    create_table "moderation_records", :force => true do |t|
+      t.integer  "recordable_id"
+      t.string   "recordable_type"
+      t.integer  "state_id",             :default => 0
+      t.integer  "decision_id",          :default => 0
+      t.boolean  "flagged",              :default => false
+      t.integer  "moderator_id"
+      t.string   "reason"
+      t.datetime "created_at"
+      t.datetime "updated_at"
+      t.text     "inspected_attributes"
+      t.boolean  "rejected",             :default => false
+    end
+
+    add_index "moderation_records", ["decision_id"], :name => "index_moderation_records_on_decision_id"
+    add_index "moderation_records", ["flagged"], :name => "index_moderation_records_on_flagged"
+    add_index "moderation_records", ["moderator_id"], :name => "index_moderation_records_on_moderator_id"
+    add_index "moderation_records", ["recordable_id", "recordable_type"], :name => "index_moderation_records_on_recordable_id_and_recordable_type"
+    add_index "moderation_records", ["rejected"], :name => "index_moderation_records_on_rejected"
+    add_index "moderation_records", ["state_id"], :name => "index_moderation_records_on_state_id"
+
+h2. Usage
+
+ActsAsModerated has two integration points. The first is within the model(s) to be moderated, which can be done like so:
+
+    class Comment < ActiveRecord::Base
+      acts_as_moderated :body
+    end
+
+The second integration point is the class that acts as the moderator. Typically this is some user or account class. The idea is that behind
+this integration point is to create an audit trail for decisions made by the moderator if you ever need to watch the watcher.
+
+  class Account < ActiveRecord::Base
+    acts_as_moderator
+  end
+
+The plugin also supports an after_moderation callback on the record being moderated, which you can use to take action based on what the 
+moderator did. For example:
+
+* Delete the record if it is inappropriate or spam
+* Email the content creator that their content has been approved / denied
+
+There are several dynamically created methods added to every acts_as_moderated class which moderators can use as a shortcut for making 
+decisions. For example where @moderator is an object with acts_as_moderator applied: 
+  @comment.marked_spam_by_moderator(@moderator)
+  @comment.marked_scam_by_moderator(@moderator, :reason => 'this is obviously a scam, please delete.')
+
+h3. Default Ordering, Callbacks & Flagging
+
+The ModerationRecord class has a named_scope called "queue", which will return records sorted oldest to newest. However, if you flag a record
+it will be returned first regardless of its age relative to unflagged records. This is useful if you want to ensure that moderators see 
+potentially dangerous records first. A good way to flag a record is using the after_moderated callback for example:
+
+    class Comment < ActiveRecord::Base
+      acts_as_moderated :body
+
+      def after_moderated(moderation_record)
+        moderation_record.flag! if body =~ /viagra/i
+      end
+    end
+
+The moderation record will attempt to make callbacks on the model being moderated after a record is first created "after_moderation"
+and when a moderator rejects a record "after_rejection" here is an example of what they might do:
+
+    class Story < ActiveRecord::Base
+      acts_as_moderated :body
+
+      def after_moderated(moderation_record)
+        update_attribute(:moderated, true)
+      end
+
+      def after_rejection(moderation_record)
+        update_attribute(:rejected, true)
+      end
+    end
+
+h3. Skipping moderation
+
+The moderation plugin adds an attr_accessor called "skip_moderation", which when set to true will prevent a moderation
+record from being created for that instance of a save. This is useful if you need to create records programmatically, which
+don't need to be moderated initially but will need to be moderated at some later point. For example:
+
+  @story = ModeratedStory.create #creates a moderation record
+  @story = ModeratedStory.create(:skip_moderation => true) #does not create a moderation record
+
+A word to the wise however, since this attr_accessor prevents records from being moderated you will want to protect it from
+mass_assignment in your model.
+
+h4. Known Bugs
+
+Presently if you use the :always_moderate flag on a STI model it will produce a never-ending series of record updates.
+I'll keep working on this bug, in the meantime please do investigate!
+
+h3. Changes
+
+* 1.0.0: Initial release
+
+h3. Credit
+
+Written by Mark Daggett (mark@humansized.com)
+Code for this plugin was inspired by aspects of acts_as_textiled, can_flag, and delayed_job, which are all excellent plugins in their own right.
+
+Copyright (c) 2010 Humansized Inc., released under the MIT license
